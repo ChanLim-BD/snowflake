@@ -9,7 +9,7 @@ CREATE OR REPLACE STORAGE INTEGRATION test_s3_snow
   TYPE = EXTERNAL_STAGE
   STORAGE_PROVIDER = 'S3'
   ENABLED = TRUE
-  STORAGE_AWS_ROLE_ARN = 'arn:aws:iam::533267437152:role/test-snow-role'
+  STORAGE_AWS_ROLE_ARN = 'arn:aws:iam::{---}:role/test-snow-role'
   STORAGE_ALLOWED_LOCATIONS = ('*');
   --[ STORAGE_BLOCKED_LOCATIONS = ('s3://<bucket>/<path>/', 's3://<bucket>/<path>/') ]
 
