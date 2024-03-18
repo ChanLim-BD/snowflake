@@ -13,7 +13,7 @@
 
 > 반정형 데이터가 포함된 일련의 스테이징된 데이터 파일에서 파일 메타데이터 스키마를 자동으로 감지하고, 열 정의를 검색합니다.
 
-**<span style="background-color:yellow; color:red">쉽게 말해, Stage내의 파일을 읽고 Table 생성하는 Schema</span>**
+**<span style="background-color:yellow; color:red">쉽게 말해, <br> Stage내의 반정형 파일의 메타데이터(열{Column}정의, Header)를 읽고 열(Column)으로 변환하는 기술이다.</span>**
 
 -> 언급되었던 **`SCHEMA DETECTION`** 의 역할
 <br>
@@ -38,6 +38,9 @@ externalStage ::=
 ```
 
 ## Example
+
+> **_지정한 External Stage에 CSV 데이터를 저장했다.<br>
+그리고 Snowflake에서 해당 CSV를 저장할 수 있는 Table을 만들기 원하는 상황일 때,_**
 
 ```sql
 SELECT *
@@ -370,6 +373,9 @@ CREATE OR REPLACE FILE FORMAT my_json_format_evolve
 
 ![](./img/TE/03.png)
 ![](./img/TE/04.png)
+
+* Non-array Json 일때 시도
+
 ![](./img/TE/05.png)
 
 </div>
