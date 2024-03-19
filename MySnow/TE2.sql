@@ -114,8 +114,27 @@ DROP TABLE s3tableEvolve2;
 ALTER WAREHOUSE COMPUTE_WH SUSPEND;
 
 ---
----
+--- JSON 데이터 추출해서 정형 테이블로 변환 시도 중
 ---
 
-SELECT *, GET(s3tableEvolve1."trafficSafetyA004AInfo", 'row') 
+-- 테스트 테이블 생성
+CREATE OR REPLACE TABLE new_test (
+    -- id INT,
+    A004_KND_CDE VARCHAR,
+    AW_SN_LENX_CDE VARCHAR
+);
+
+SELECT GET(s3tableEvolve1."trafficSafetyA004AInfo", 'row') as Data, Data[0]:A004_KND_CDE
 FROM s3tableEvolve1;
+
+INSERT INTO new_test (A004_KND_CDE, AW_SN_LENX_CDE)
+SELECT 
+    -- id, 
+    GET(s3tableEvolve1."trafficSafetyA004AInfo", 'row')[0]:A004_KND_CDE::VARCHAR AS A004_KND_CDE,
+    GET(s3tableEvolve1."trafficSafetyA004AInfo", 'row')[0]:AW_SN_LENX_CDE::VARCHAR AS AW_SN_LENX_CDE,
+FROM s3tableEvolve1;
+
+-- 결과 확인
+SELECT * FROM new_test;
+
+TRUNCATE TABLE new_test;
