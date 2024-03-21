@@ -332,11 +332,9 @@ SELECT comment FROM RECEIVE_COMMENT_META WHERE COLUMN_NAME = 'N_NATIONKEY';
 -- 실패
 ALTER TABLE RECEIVE_COMMENT
 MODIFY COLUMN N_NATIONKEY COMMENT '<string_literal>';
--- MODIFY COLUMN N_NATIONKEY COMMENT (SELECT comment FROM RECEIVE_COMMENT_META WHERE COLUMN_NAME = 'N_NATIONKEY');
 
 -- 실패
 COMMENT ON COLUMN RECEIVE_COMMENT.N_NATIONKEY IS '<string_literal>';
---COMMENT ON COLUMN RECEIVE_COMMENT.N_NATIONKEY IS (SELECT comment FROM RECEIVE_COMMENT_META WHERE COLUMN_NAME = 'N_NATIONKEY');
 
 
 -- '<string_literal>' 부분은 SELECT로 지정할 수 없다. 즉, 일일이 입력해서 COMMENT를 수동으로 지정해야한다.
@@ -351,8 +349,5 @@ DESC TABLE RECEIVE_COMMENT;
 -------------------------------------------------------------------------------------------------------------
 
 -- Table의 메타데이터로 COMMENT를 언로딩 및 로딩할 수 있다.
-    -- 그러나 이 부분은 OCI - DMS - S3 로 메타데이터가 저장될 수 있는지 알아야한다. 
-    -- (정황 상, 자동으로 언로딩 불가능 | 수동으로 언로딩 가능)
-    
 -- 다만, S3로부터 로딩한 메타데이터를 활용해서 Table에 순차적으로 적용하는 방법이 없다.
 -- 즉, 일일이 수동으로 열마다 저장해야한다.
