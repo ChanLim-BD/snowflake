@@ -7,6 +7,7 @@
 -- 역할 및 웨어하우스 사용 설정
 USE ROLE ACCOUNTADMIN;
 USE WAREHOUSE COMPUTE_WH;
+ALTER WAREHOUSE COMPUTE_WH SET WAREHOUSE_SIZE = 'X-SMALL';
 
 -- DB, SCHEMA 생성 및 사용
 --CREATE OR REPLACE DATABASE PENTA_DB;
@@ -62,9 +63,8 @@ SELECT *
 ------------------------------------------------
 
 
-
 -- CSV Table 생성
-CREATE OR REPLACE TABLE ORIGIN_TEST ENABLE_SCHEMA_EVOLUTION = TRUE
+CREATE OR REPLACE TABLE ORIGIN_TEST
 USING TEMPLATE (
     SELECT ARRAY_AGG(object_construct(*))
       FROM TABLE(
@@ -78,6 +78,7 @@ USING TEMPLATE (
 -- TABLE 확인
 SELECT * FROM ORIGIN_TEST;
 DESC TABLE ORIGIN_TEST;
+
 
 -----------------------------------------------
 --                                           --
@@ -112,7 +113,7 @@ DESC TABLE ORIGIN_TEST;
 -- Dynamic Table 생성
 CREATE OR REPLACE DYNAMIC TABLE DTABLETEST
   TARGET_LAG = '1 minutes'
-  WAREHOUSE = COMPUTE_WH
+  WAREHOUSE = JAE_WH
   AS
     SELECT * FROM ORIGIN_TEST;
 
@@ -124,10 +125,10 @@ CREATE OR REPLACE DYNAMIC TABLE DTABLETEST
 -----------------------------------------------
 
 
-
 SELECT * FROM DTABLETEST;
 -- Dynamic Table도 COMMENT는 반영하지 못함.
 DESC TABLE DTABLETEST;
+
 
 
 ------------------------------------------------------------------------------------
@@ -144,6 +145,7 @@ DESC TABLE DTABLETEST;
 
 INSERT INTO ORIGIN_TEST (ID, FIRST_NAME, LAST_NAME, EMAIL)
 VALUES (1001, 'Sue', 'Storms', 'abc@acb.com');
+
 
 -----------------------------------------------
 --                                           --
@@ -328,8 +330,8 @@ CREATE OR REPLACE DYNAMIC TABLE DTABLETEST
 -- 재생성 시, 반영.
 SELECT * FROM DTABLETEST;
 
--- DROP TABLE DTABLETEST;
--- DROP TABLE ORIGIN_TEST;
+DROP TABLE DTABLETEST;
+DROP TABLE ORIGIN_TEST;
     
 ---------------------------------------------------------------------------------
 --■■■■■■■■■■■■■■■■■■■■ 4. Schema Evolution Dynamic Table 반영 X  ■■■■■■■■■■■■■■■■■■■■■■
@@ -340,7 +342,7 @@ SELECT * FROM DTABLETEST;
 --■■■■■■■■■■■■■■■■■■■■ 5. Dynamic Table에 Schema Evolution 활성화해보기  ■■■■■■■■■■■■■■■■■■■■■■
 ----------------------------------------------------------------------------------------
 
--- Dynamic Table 재생성시 반영되는지 확인
+-- Dynamic Table에도 SCHEMA EVOLUTION이 존재하는 지 확인.
 CREATE OR REPLACE DYNAMIC TABLE DTABLETEST ENABLE_SCHEMA_EVOLUTION = TRUE
   TARGET_LAG = '1 minutes'
   WAREHOUSE = COMPUTE_WH
@@ -351,7 +353,7 @@ CREATE OR REPLACE DYNAMIC TABLE DTABLETEST ENABLE_SCHEMA_EVOLUTION = TRUE
 
 
 -----------------------------------------------------------------------------------------
---■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 5. 그러한 Option은 없다.  ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+--■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 5. 그러한 Option은 없음  ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
 -----------------------------------------------------------------------------------------
 
 
@@ -531,6 +533,8 @@ SELECT * FROM ORIGIN_TEST;
 --                                           --
 -----------------------------------------------
 
+-- DROP MATERIALIZED VIEW MV;
+
 CREATE MATERIALIZED VIEW MV
     COMMENT='Test view'
     AS
@@ -601,6 +605,8 @@ SELECT * FROM ORIGIN_TEST;
 -- 데이터 자체는 삽입 및 삭제가 되는데, SCHEMA EVOLUTION은 반영되지 않는다.
 SELECT * FROM MV;
 
+-- ALTER MATERIALIZED VIEW MV ADD COLUMN IP VARCHAR(255);
+
 
 ----------------------------------------------------------------------------------------------------
 --■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 7. Materialized View 라면? 진화 X   ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
@@ -609,5 +615,97 @@ SELECT * FROM MV;
 DROP TABLE ORIGIN_TEST;
 DROP DYNAMIC TABLE DTABLETEST;
 
+
+----------------------------------------------------------------------------------------------------
+--■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ +a. Join 적용 확인   ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+----------------------------------------------------------------------------------------------------
+
+----------------------------------------------------
+--                                                --
+--   INFER_SCHEMA를 통해 S3의 파일 메타데이터 인식    --
+--                                                --
+----------------------------------------------------
+
+-- INFER_SCHEMA test csv
+SELECT *
+  FROM TABLE(
+    INFER_SCHEMA(
+      LOCATION=>'@S3_TO_SNOW_DYNAMIC/dy_cars'
+      , FILE_FORMAT=>'my_csv_load_dynamic_format'
+      )
+    );
+
+
+------------------------------------------------
+--                                            --
+--    SCHEMA DETECTION을 활용한 Table 생성      --
+--                                            --
+------------------------------------------------
+
+
+-- CSV Table 생성
+CREATE OR REPLACE TABLE JOIN_TEST
+USING TEMPLATE (
+    SELECT ARRAY_AGG(object_construct(*))
+      FROM TABLE(
+        INFER_SCHEMA(
+          LOCATION=>'@S3_TO_SNOW_DYNAMIC/dy_cars'
+          , FILE_FORMAT=>'my_csv_load_dynamic_format'
+          )
+      ));
+
+-----------------------------------------------
+--                                           --
+--        ORIGIN_TABLE에 COPY INTO           --
+--                                           --
+-----------------------------------------------
+
+COPY INTO JOIN_TEST
+    FROM @S3_TO_SNOW_DYNAMIC/dy_cars
+    FILE_FORMAT = my_csv_load_dynamic_format
+    MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE;
+
+
+-----------------------------------------------
+--                                           --
+--              ORIGIN_TABLE 확인             --
+--                                           --
+-----------------------------------------------
+
+SELECT * FROM JOIN_TEST;
+
+-----------------------------------------------
+--                                           --
+--              Dynamic Table 생성            --
+--                                           --
+-----------------------------------------------
+
+-- Dynamic Table 생성
+CREATE OR REPLACE DYNAMIC TABLE DTABLETEST
+  TARGET_LAG = '1 minutes'
+  WAREHOUSE = COMPUTE_WH
+  AS
+    SELECT ORIGIN_TEST.ID, ORIGIN_TEST.FIRST_NAME, ORIGIN_TEST.LAST_NAME, ORIGIN_TEST.EMAIL, JOIN_TEST.CAR
+    FROM 
+    ORIGIN_TEST FULL OUTER JOIN JOIN_TEST
+    ON ORIGIN_TEST.ID = JOIN_TEST.ID;
+
+    
+-----------------------------------------------
+--                                           --
+--             Dynamic Table 확인             --
+--                                           --
+-----------------------------------------------
+
+-- 바로 확인했을 때 데이터가 없는 것을 확인
+SELECT * FROM DTABLETEST;
+
+-- 약 1분 후... Apply 확인
+SELECT * FROM DTABLETEST;
+
+
+DROP TABLE JOIN_TEST;
+DROP TABLE DTABLETEST;
+DROP TABLE ORIGIN_TEST;
 
 
